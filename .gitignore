@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+
+# Data and Logs
+backend/data/*.db
+backend/data/uploads/
+backend/data/processed/
+backend/data/timelines/
+backend/logs/
+*.log
+
+# Project specific
+"Music Academy Journals/"
+search_output*.txt
+comprehensive_search_results.json
+search_results.json
+search_output.txt
+search_output_refined.txt
+search_output_refined_v2.txt
+search_output_sanskrit.txt
+search_output_sanskrit_v2.txt
+search_output_exhaustive.txt
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
