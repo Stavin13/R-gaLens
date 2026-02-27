@@ -1,8 +1,11 @@
-import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
+import os
 
-load_dotenv()
+# Get the path to the backend directory (backend/app/core/config.py -> 3 levels up)
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+env_path = os.path.join(backend_dir, ".env")
+load_dotenv(env_path)
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Musicology Research Assistant"
@@ -19,11 +22,13 @@ class Settings(BaseSettings):
     # OCR
     TESSERACT_PATH: str = os.getenv("TESSERACT_PATH", "tesseract")
     
-    # NLP Models
+    # NLP Settings
     SPACY_MODEL: str = os.getenv("SPACY_MODEL", "en_core_web_sm")
-    SUMMARIZATION_MODEL: str = os.getenv("SUMMARIZATION_MODEL", "facebook/bart-large-cnn")
-    NER_MODEL: str = os.getenv("NER_MODEL", "dslim/bert-base-NER")
-    ZERO_SHOT_MODEL: str = os.getenv("ZERO_SHOT_MODEL", "facebook/bart-large-mnli")
+    
+    # OpenRouter
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_MAIN_MODEL: str = os.getenv("OPENROUTER_MAIN_MODEL", "moonshotai/kimi-k2.5")
+    OPENROUTER_FALLBACK_MODEL: str = os.getenv("OPENROUTER_FALLBACK_MODEL", "openai/gpt-oss-120b")
     
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
 

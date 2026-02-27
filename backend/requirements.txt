@@ -8,10 +8,6 @@ pymupdf
 pytesseract
 Pillow
 opencv-python-headless
-transformers
-torch
-sentence-transformers
-huggingface_hub
 spacy
 dateparser
 tqdm
@@ -20,3 +16,4 @@ aiofiles
 jinja2
 python-jose[cryptography]
 passlib[bcrypt]
+openai
