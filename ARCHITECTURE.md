@@ -67,8 +67,11 @@ The system handles raw, high-resolution academic journals using a combination of
 ### 2. Document Structuring
 Documents are segmented and tagged with metadata including **Decade Collections**. This creates a longitudinal anchor, allowing concepts to be tracked over a century of academic discussion.
 
-### 3. OpenRouter LLM Orchestration
-The core analysis utilizes state-of-the-art models via OpenRouter (Primary: **Kimi K2.5**, Fallback: **GPT-OSS 120B**). The processing follows a multi-stage approach:
+### 3. Multi-Provider LLM Orchestration
+The core analysis utilizes state-of-the-art models via **Groq** (primary for speed/efficiency) and **OpenRouter** (secondary for heavy academic reasoning).
+- **Primary**: Llama 3.3 (via Groq)
+- **Secondary**: Kimi K2.5 (via OpenRouter)
+- **Fallback**: GPT-OSS 120B (via OpenRouter)
 - **Extraction**: Identifying the 6 primary musicology terms (Marga, Raagas, Taala, Prabandha, Desi, Vaadya).
 - **Paper-Level Summary**: Generating rigorous academic condensations per document.
 - **Synthesis**: Aggregating decade-level data to identify shifts, dominant framings, and novel methodologies.

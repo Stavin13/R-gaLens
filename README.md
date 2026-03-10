@@ -5,7 +5,7 @@ R-gaLens is a comprehensive AI-powered research assistant designed for musicolog
 ## 🚀 Key Features
 
 - **Inteligent Ingestion**: Automatic processing of archival journals using **PyMuPDF** and **Tesseract OCR** with image enhancement for historical scans.
-- **OpenRouter LLM Engine**: Advanced reasoning using **Kimi K2.5** (Moonshot AI) and **GPT-OSS 120B** (OpenAI) for academic-grade summarization and analysis.
+- **Multi-Provider LLM Engine**: Advanced reasoning using **Groq** (Llama 3.3) for speed and **OpenRouter** (Kimi K2.5, GPT-OSS) for academic depth.
 - **Theory Synthesis (New)**: A rigorous 5-stage synthesis pipeline that maps the evolution of 6 primary concepts:
   - **Marga**, **Raagas**, **Taala**, **Prabandha**, **Desi**, **Vaadya**
 - **Longitudinal Analysis**: Automatically tags and groups research by decade, enabling researchers to see how dominant framings and methodologies shifted over time.
@@ -16,7 +16,7 @@ R-gaLens is a comprehensive AI-powered research assistant designed for musicolog
 ## 🛠️ Tech Stack
 
 - **Backend**: Python 3.12, FastAPI, SQLAlchemy (SQLite)
-- **AI/NLP**: OpenRouter (Kimi K2.5, GPT-OSS), SpaCy (local), Tesseract OCR
+- **AI/NLP**: Groq (Llama 3.3), OpenRouter (Kimi K2.5, GPT-OSS), SpaCy (local), Tesseract OCR
 - **Frontend**: React.js, Vite, Lucide Icons
 - **Data Architecture**: Structured JSON persistent storage for cross-decade theoretical mapping.
 

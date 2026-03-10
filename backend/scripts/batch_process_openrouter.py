@@ -14,19 +14,35 @@ from app.services.nlp_service import nlp_orchestrator
 from app.utils.logger import logger
 from tqdm import tqdm
 
-async def batch_process_docs(batch_size=5, delay=2):
+async def batch_process_docs(batch_size=10, delay=2, force=False, start_index=0, limit=None):
     """
-    Processes all documents in the database using the new OpenRouter pipeline.
+    Processes documents in the database.
     batch_size: Number of documents to process before a short pause.
     delay: Seconds to wait between batches.
+    force: If True, re-processes documents regardless of status.
+    start_index: Index to start from in the document list.
+    limit: Maximum number of documents to process.
     """
     db = SessionLocal()
     try:
-        # Get all documents
-        # We can filter by status if we want to skip already processed ones, 
-        # but for "training" on current DB, we might want to re-process.
-        docs = db.query(models.Document).all()
-        logger.info(f"🚀 Starting batch processing for {len(docs)} documents using OpenRouter...")
+        if force:
+            docs = db.query(models.Document).order_by(models.Document.id).all()
+            logger.info(f"🚀 FORCED re-processing of all {len(docs)} documents...")
+        else:
+            docs = db.query(models.Document).filter(models.Document.status != "processed").order_by(models.Document.id).all()
+            logger.info(f"🚀 Starting batch processing for {len(docs)} (unprocessed) documents...")
+
+        # Apply start index and limit
+        total_available = len(docs)
+        docs = docs[start_index:]
+        if limit is not None:
+            docs = docs[:limit]
+            
+        if not docs:
+            logger.info("Nothing to process.")
+            return
+            
+        logger.info(f"Processing docs {start_index + 1} to {start_index + len(docs)} (Total available: {total_available})")
 
         count = 0
         for doc in tqdm(docs):
@@ -39,13 +55,11 @@ async def batch_process_docs(batch_size=5, delay=2):
                 logger.info(f"Extracting text from: {doc.filename}")
                 pdf_data = pdf_processor.process_pdf(doc.path)
                 
-                # 2. Run new OpenRouter NLP Analysis
-                # This performs summarization, entity extraction, and event detection
-                logger.info(f"Analyzing with OpenRouter: {doc.filename}")
+                # 2. Run new LLM Analysis
+                logger.info(f"Analyzing with LLM (Groq/OpenRouter): {doc.filename}")
                 nlp_data = nlp_orchestrator.process_document(pdf_data["full_text"])
                 
                 # 3. Update NLP Results
-                # Clear old results for this doc
                 db.query(models.NLPResult).filter(models.NLPResult.document_id == doc.id).delete()
                 
                 nlp_result = models.NLPResult(
@@ -58,7 +72,6 @@ async def batch_process_docs(batch_size=5, delay=2):
                 db.add(nlp_result)
                 
                 # 4. Update Events
-                # Clear old events
                 db.query(models.Event).filter(models.Event.document_id == doc.id).delete()
                 
                 for e in nlp_data["events"]:
@@ -66,7 +79,7 @@ async def batch_process_docs(batch_size=5, delay=2):
                         document_id=doc.id,
                         title=f"Event in {doc.filename}",
                         description=e.get("sentence", "No description"),
-                        date_str="Detected via OpenRouter",
+                        date_str="Detected via LLM",
                         event_type=e.get("type", "event"),
                         confidence=e.get("confidence", 0.0),
                         entities=nlp_data["entities"],
@@ -81,7 +94,6 @@ async def batch_process_docs(batch_size=5, delay=2):
                 db.commit()
                 count += 1
                 
-                # Chunking delay logic
                 if count % batch_size == 0:
                     logger.info(f"Batch of {batch_size} completed. Resting for {delay}s...")
                     time.sleep(delay)
@@ -91,16 +103,25 @@ async def batch_process_docs(batch_size=5, delay=2):
                 db.rollback()
                 continue
                 
-        logger.info(f"✅ Finished! Successfully re-processed {count} documents.")
+        logger.info(f"✅ Finished! Successfully processed {count} documents.")
         
     finally:
         db.close()
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Batch process documents via OpenRouter")
-    parser.add_argument("--batch", type=int, default=5, help="Batch size")
+    parser = argparse.ArgumentParser(description="Batch process documents via LLM")
+    parser.add_argument("--batch", type=int, default=10, help="Batch size")
     parser.add_argument("--delay", type=int, default=2, help="Delay between batches")
+    parser.add_argument("--force", action="store_true", help="Re-process all documents")
+    parser.add_argument("--start", type=int, default=0, help="Start index")
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of docs")
     args = parser.parse_args()
     
-    asyncio.run(batch_process_docs(batch_size=args.batch, delay=args.delay))
+    asyncio.run(batch_process_docs(
+        batch_size=args.batch, 
+        delay=args.delay, 
+        force=args.force, 
+        start_index=args.start, 
+        limit=args.limit
+    ))

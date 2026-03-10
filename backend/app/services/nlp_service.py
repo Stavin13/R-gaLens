@@ -4,19 +4,26 @@ import dateparser
 import os
 import json
 from openai import OpenAI
+from groq import Groq
 from app.core.config import settings
 from app.utils.logger import logger
 
 class NLPOrchestrator:
     def __init__(self):
         self.api_key = settings.OPENROUTER_API_KEY
-        if not self.api_key:
-            logger.warning("OPENROUTER_API_KEY not found. LLM features will fail.")
+        self.groq_key = settings.GROQ_API_KEY
         
+        if not self.api_key and not self.groq_key:
+            logger.warning("Neither OPENROUTER_API_KEY nor GROQ_API_KEY found. LLM features will fail.")
+        
+        # OpenRouter Client
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=self.api_key,
-        )
+        ) if self.api_key else None
+        
+        # Groq Client
+        self.groq_client = Groq(api_key=self.groq_key) if self.groq_key else None
         
         # Always load SpaCy locally for text segmentation
         try:
@@ -31,76 +38,117 @@ class NLPOrchestrator:
         self.event_labels = ["founded", "published", "performed", "recorded", "born", "died", "composed"]
 
     def _call_llm(self, prompt: str, system_prompt: str = "You are a musicology research assistant.") -> str:
-        """Calls OpenRouter with fallback logic."""
-        models = [settings.OPENROUTER_MAIN_MODEL, settings.OPENROUTER_FALLBACK_MODEL]
+        """Calls LLM providers with fallback logic."""
+        providers = []
         
-        for model in models:
+        # Add Groq to the top of the list if available (fast and separate quota)
+        if self.groq_client:
+            providers.append(("groq", settings.GROQ_MODEL))
+            
+        # Add OpenRouter models
+        if self.client:
+            providers.append(("openrouter", settings.OPENROUTER_MAIN_MODEL))
+            providers.append(("openrouter", settings.OPENROUTER_FALLBACK_MODEL))
+        
+        for provider, model in providers:
             try:
-                logger.info(f"Calling OpenRouter model: {model}")
-                response = self.client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
-                    extra_headers={
-                        "HTTP-Referer": "https://github.com/Stavin13/R-gaLens", # Optional
-                        "X-Title": "Musicology Research Assistant", # Optional
-                    }
-                )
-                return response.choices[0].message.content
+                logger.info(f"Calling {provider} model: {model}")
+                
+                if provider == "groq":
+                    response = self.groq_client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    return response.choices[0].message.content
+                
+                elif provider == "openrouter":
+                    response = self.client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": prompt}
+                        ],
+                        extra_headers={
+                            "HTTP-Referer": "https://github.com/Stavin13/R-gaLens",
+                            "X-Title": "Musicology Research Assistant",
+                        }
+                    )
+                    return response.choices[0].message.content
+                    
             except Exception as e:
-                logger.error(f"Error calling model {model}: {e}")
+                logger.error(f"Error calling {provider} model {model}: {e}")
                 continue
         
-        logger.error("All OpenRouter models failed.")
+        logger.error("All LLM providers failed.")
         return ""
 
     def process_document(self, text: str, metadata: dict = None) -> dict:
-        logger.info(f"Orchestrating NLP processing for {len(text)} characters using OpenRouter...")
+        logger.info(f"Orchestrating NLP processing for {len(text)} characters using Smart Chunking...")
         
         # 1. Date Extraction (keeping regex-based as it's reliable and cheap)
         dates_found = self._extract_dates(text)
         decade = self._detect_decade(dates_found)
         
-        # 2. LLM Analysis (Summarization, Entities, Events)
-        # We'll use a single comprehensive prompt for efficiency if the text is small,
-        # otherwise we might need to chunk. For now, let's try a combined analysis.
+        # 2. Smart Chunking: Extract context only around primary terms
+        snippets = []
+        context_window = 1200 # Chars around the match
         
-        # Chunking if text is too long (OpenRouter models have large contexts but let's be safe)
-        max_chars = 10000 
-        analysis_text = text[:max_chars]
+        for term in self.primary_terms:
+            # Find up to 2 context matches per primary term
+            matches = list(re.finditer(rf"\b{term}\b", text, re.I))
+            for match in matches[:2]:
+                start = max(0, match.start() - context_window // 2)
+                end = min(len(text), match.end() + context_window // 2)
+                snippet = text[start:end].strip()
+                snippets.append(f"--- Context regarding {term} ---\n...{snippet}...")
+
+        # If no primary terms matched, fallback to first 3000 chars for a general summary
+        if not snippets:
+            logger.info("No primary terms matched. Using doc header for summary.")
+            analysis_text = text[:3000]
+        else:
+            # Join snippets, cap at 7000 chars to be token-safe
+            analysis_text = "\n\n".join(snippets)[:7000]
+            logger.info(f"Extracted {len(snippets)} relevant snippets for focused analysis.")
         
         prompt = f"""
-        Analyze the following text from a musicology academic document.
+        Analyze the following segments from a musicology academic document.
         
-        Focus specifically on these key terms if they appear: {', '.join(self.primary_terms)}.
+        Focus specifically on these key terms: {', '.join(self.primary_terms)}.
         
         Tasks:
-        1. Provide a concise summary (3-5 sentences). If the primary terms are mentioned, explain how they are framed or discussed.
-        2. Extract key musicology entities (e.g., Rāga, Tāla, instruments, specific terms).
-        3. Identify important historical or musical events (e.g., performances, publications, births/deaths).
+        1. Provide a concise summary (3-5 sentences) of how these terms are framed in these specific contexts.
+        2. Extract key musicology entities (e.g., Rāga, Tāla, specific instruments or schools).
+        3. Identify any historical or musical events (e.g., performances, years, publications).
         
-        Format your response as JSON:
+        Format your response as strictly valid JSON:
         {{
             "summary": "...",
             "entities": [{{ "text": "...", "label": "..." }}],
             "events": [{{ "sentence": "...", "type": "...", "confidence": 0.9 }}]
         }}
         
-        Text:
+        Text Segments:
         {analysis_text}
         """
         
         llm_response = self._call_llm(prompt, system_prompt="You are an expert musicologist. Output ONLY valid JSON.")
         
         try:
-            # Clean potential markdown formatting if model didn't follow instructions perfectly
-            clean_json = re.sub(r"```json\s*|\s*```", "", llm_response).strip()
-            result = json.loads(clean_json)
+            # Extract JSON block
+            json_match = re.search(r"(\{.*\})", llm_response, re.DOTALL)
+            if json_match:
+                clean_json = json_match.group(1).strip()
+                result = json.loads(clean_json)
+            else:
+                result = {"summary": "No JSON block found", "entities": [], "events": []}
         except Exception as e:
             logger.error(f"Failed to parse LLM JSON response: {e}")
-            result = {"summary": "Error parsing LLM response", "entities": [], "events": []}
+            logger.debug(f"Raw LLM response: {llm_response}")
+            result = {"summary": "Error parsing response", "entities": [], "events": []}
 
         # Add regex-based musicology terms as a safety net
         found_entities = result.get("entities", [])
