@@ -1,0 +1,8 @@
+groq
+fastapi
+uvicorn
+sentence-transformers
+faiss-cpu
+python-dotenv
+pdfminer.six
+tqdm
