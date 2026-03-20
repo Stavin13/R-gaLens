@@ -59,6 +59,10 @@ class QueryRequest(BaseModel):
     query: str
     top_k: int = 5
 
+@app.get("/")
+def health_check():
+    return {"status": "online", "archive": "Music Academy Journal Explorer v1.2"}
+
 @app.post("/query")
 async def process_query(req: QueryRequest):
     try:
