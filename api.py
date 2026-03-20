@@ -26,7 +26,13 @@ app.add_middleware(
 # Config
 INDEX_FOLDER = "vector_db"
 MODEL_NAME = "all-MiniLM-L6-v2"
-GROQ_MODEL = "llama-3.3-70b-versatile" # Using latest Meta Llama 3.3
+GROQ_MODEL = "llama-3.3-70b-versatile" 
+
+# Global Resource Handles (Lazy Loaded for Render Stability)
+model = None
+index = None
+chunks = None
+client = None
 
 # IMPORTANT TERMS & SYNONYMS
 TERM_EXPANSION = {
@@ -46,14 +52,15 @@ def expand_query(query: str) -> str:
             expanded += " (" + " ".join(variants) + ")"
     return expanded
 
-@app.on_event("startup")
 def load_resources():
     global model, index, chunks, client
-    model = SentenceTransformer(MODEL_NAME)
+    print("Loading AI models and search index into RAM... (May take 1-2 mins on free tier)")
+    model = SentenceTransformer(MODEL_NAME, device='cpu')
     index = faiss.read_index(os.path.join(INDEX_FOLDER, "index.faiss"))
     with open(os.path.join(INDEX_FOLDER, "metadata.pkl"), "rb") as f:
         chunks = pickle.load(f)
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+    print("Resources loaded successfully.")
 
 class QueryRequest(BaseModel):
     query: str
@@ -65,7 +72,11 @@ def health_check():
 
 @app.post("/query")
 async def process_query(req: QueryRequest):
+    global model, index, chunks, client
     try:
+        if model is None:
+            load_resources()
+            
         # Preprocess and expand query for better retrieval
         query_to_search = expand_query(req.query)
         print(f"Original: {req.query} | Expanded: {query_to_search}")
@@ -130,4 +141,6 @@ Goal: Provide a scholarly response. If the query asks about history or evolution
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Use PORT env var for Render/Heroku/Railway
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
