@@ -5,6 +5,7 @@ __pycache__/
 *.so
 .Python
 env/
+venv/
 build/
 develop-eggs/
 dist/
@@ -35,9 +36,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Journals (Too heavy for Git)
+# Large Archive Files (Essential!)
 Music Academy Journals/
 *.zip
+*.tar.gz
+*.faiss.tmp
 
 # OS
 .DS_Store
