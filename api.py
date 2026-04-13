@@ -118,17 +118,25 @@ async def process_query(req: QueryRequest):
             })
 
         prompt = f"""
-Historical Context from Music Academy Journals (1930-2023):
+ACT AS: A Senior Research Musicologist.
+RESEARCH SOURCE: Music Academy Journal Archives (1930-2023).
+
+CONTEXT EXCERPTS:
 {context_str}
 
-Query: {req.query}
+USER QUERY: {req.query}
 
-Goal: Provide a scholarly response. If the query asks about history or evolution, please highlight how the discussion has changed or remained consistent across different years/decades based on the provided context tagged with [YEAR].
+INSTRUCTIONS FOR THE REPORT:
+1. Provide a high-depth scholarly analysis based ONLY on the provided context.
+2. If the query involves history or evolution, contrast discussions across decades (e.g., 1940s vs 2000s).
+3. Explicitly mention specific musicological elements (Desi Taalas, Raagas, Prabandhas) if they appear in the context.
+4. Address research gaps or shifts in scholarly interest if the evidence allows.
+5. Identify any 'Marga' vs 'Desi' dichotomies found in the excerpts.
 """
         
         chat_completion = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "You are a professional musicologist specializing in the Music Academy Journals. Answer based on the context."},
+                {"role": "system", "content": "You are a Senior Research Musicologist specializing in the Music Academy Journals. Your goal is to provide exceptionally deep, academic, and evidence-based analysis. Use specific terminologies (e.g., Lakshana, Suladi, Prabandha) where appropriate."},
                 {"role": "user", "content": prompt}
             ],
             model=GROQ_MODEL,
