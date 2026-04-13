@@ -12,6 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv() # Load from .env
 
+# CRITICAL: Prevent multithreading conflicts on Mac arm64
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 app = FastAPI()
 
 # Add CORS - explicitly allow Vercel frontend
@@ -59,7 +63,7 @@ def expand_query(query: str) -> str:
 def load_resources():
     global model, index, chunks, client
     print("Loading AI models and search index into RAM... (May take 1-2 mins on free tier)")
-    model = SentenceTransformer(MODEL_NAME, device='cpu')
+    model = SentenceTransformer(MODEL_NAME)
     index = faiss.read_index(os.path.join(INDEX_FOLDER, "index.faiss"))
     with open(os.path.join(INDEX_FOLDER, "metadata.pkl"), "rb") as f:
         chunks = pickle.load(f)
@@ -155,4 +159,5 @@ if __name__ == "__main__":
     import uvicorn
     # Use PORT env var for Render/Heroku/Railway
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # 'workers=1' is critical for Mac ARM stability with FAISS + Torch
+    uvicorn.run(app, host="0.0.0.0", port=port, workers=1, loop="asyncio")
