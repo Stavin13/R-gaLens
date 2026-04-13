@@ -29,7 +29,8 @@ export const useJournalSearch = () => {
     setResult(null);
 
     try {
-      const response = await fetch('https://r-galens.onrender.com/query', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://r-galens.onrender.com';
+      const response = await fetch(`${API_URL}/query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
