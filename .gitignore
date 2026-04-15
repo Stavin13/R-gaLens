@@ -40,6 +40,8 @@ Music Academy Journals/
 *.zip
 *.tar.gz
 *.faiss.tmp
+Research Database-Music/
+*.pdf
 
 # OS
 .DS_Store

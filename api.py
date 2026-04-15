@@ -33,7 +33,7 @@ app.add_middleware(
 
 # Config
 INDEX_FOLDER = "vector_db"
-MODEL_NAME = "all-MiniLM-L6-v2"
+MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 GROQ_MODEL = "llama-3.3-70b-versatile" 
 
 # Global Resource Handles (Lazy Loaded for Render Stability)
@@ -89,9 +89,9 @@ async def process_query(req: QueryRequest):
         query_to_search = expand_query(req.query)
         print(f"Original: {req.query} | Expanded: {query_to_search}")
         
-        # Increase top_k for temporal analysis
+        # Increase top_k significantly for deep research analysis (Top 25 results)
         query_vector = model.encode([query_to_search]).astype("float32")
-        distances, indices = index.search(query_vector, req.top_k * 2) 
+        distances, indices = index.search(query_vector, 25) 
         
         context = []
         sources = []
@@ -103,7 +103,7 @@ async def process_query(req: QueryRequest):
                 year_match = re.search(r"(\d{4})", fname)
                 year = year_match.group(1) if year_match else "Unknown"
                 
-                context.append(f"[YEAR: {year}] {chunks[i]['text']}")
+                context.append(f"[SOURCE {len(context)+1}: {fname}, Page {chunks[i]['page']}] {chunks[i]['text']}")
                 sources.append({
                     "filename": fname,
                     "page": chunks[i]["page"],
@@ -122,25 +122,43 @@ async def process_query(req: QueryRequest):
             })
 
         prompt = f"""
-ACT AS: A Senior Research Musicologist.
-RESEARCH SOURCE: Music Academy Journal Archives (1930-2023).
+ROLE: Senior Research Musicologist & Archive Historian.
+SOURCE CORPUS: Music Academy Journal Archives (1930-2023).
 
-CONTEXT EXCERPTS:
+### MASTER RESEARCH CONTEXT (25 HIGH-RELEVANCE EXCERPTS)
 {context_str}
 
-USER QUERY: {req.query}
+### RESEARCH QUESTION
+{req.query}
 
-INSTRUCTIONS FOR THE REPORT:
-1. Provide a high-depth scholarly analysis based ONLY on the provided context.
-2. If the query involves history or evolution, contrast discussions across decades (e.g., 1940s vs 2000s).
-3. Explicitly mention specific musicological elements (Desi Taalas, Raagas, Prabandhas) if they appear in the context.
-4. Address research gaps or shifts in scholarly interest if the evidence allows.
-5. Identify any 'Marga' vs 'Desi' dichotomies found in the excerpts.
+---
+
+### REQUIRED COMPREHENSIVE OUTPUT STRUCTURE:
+1. **Consensus Overview**: Provide an expanded abstract. Summarize matching and conflicting views across the sources.
+2. **Deep Evidence Analysis**: For every claim, you MUST provide 1-2 sentences of specific detail from the text. Cite as [1], [2] etc.
+3. **Comparative Data Table**: Construct a Markdown table that cross-references names, dates, and different terminologies found in the context.
+4. **Historical Evolution (Deep Dive)**: Contrast how this specific topic was discussed in the early 20th century vs the modern era based strictly on the source numbers.
+5. **Scholarly Gaps**: Identify what isn't said in these specific 25 excerpts that a musicologist would want to know.
+6. **Bibliography**: List all used sources with their specific page numbers.
 """
         
         chat_completion = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "You are a Senior Research Musicologist specializing in the Music Academy Journals. Your goal is to provide exceptionally deep, academic, and evidence-based analysis. Use specific terminologies (e.g., Lakshana, Suladi, Prabandha) where appropriate."},
+                {
+                    "role": "system", 
+                    "content": (
+                        "You are an Elite Musicological Research AI. Your goal is to provide LONG, COMPREHENSIVE, "
+                        "and highly technical research reports. \n"
+                        "RULES: \n"
+                        "1. BE VOLUMINOUS: Expand on every point. If you see a name or date, explain its relevance from the context.\n"
+                        "2. In-text citations [1] are mandatory for every fact.\n"
+                        "3. Use Markdown tables for any comparison.\n"
+                        "4. Maintain a formal, academic tone.\n"
+                        "5. If the source material is in a regional language (Sanskrit, Tamil, Kannada, etc.), "
+                        "refer to the original terminology in brackets.\n"
+                        "6. NEVER hallucinate. If the OCR is garbled, state 'Primary source text unclear' instead of guessing."
+                    )
+                },
                 {"role": "user", "content": prompt}
             ],
             model=GROQ_MODEL,

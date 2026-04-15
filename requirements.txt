@@ -7,3 +7,6 @@ numpy<2.0
 python-dotenv
 pdfminer.six
 tqdm
+easyocr
+pdf2image
+Pillow

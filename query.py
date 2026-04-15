@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer
 
 # Config
 INDEX_FOLDER = "vector_db"
-MODEL_NAME = "all-MiniLM-L6-v2"
+MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 GROQ_MODEL = "llama3-70b-8192"
 
 def query_rag(query: str, top_k: int = 5):
