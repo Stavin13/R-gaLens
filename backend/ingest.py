@@ -17,10 +17,11 @@ from tqdm import tqdm
 from PIL import Image
 
 # Config
-INDEX_FOLDER = "vector_db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INDEX_FOLDER = os.path.join(BASE_DIR, "vector_db")
 PDF_FOLDERS = [
-    "/Users/stavinfernandes/Desktop/ragalens/Music Academy Journals",
-    "/Users/stavinfernandes/Desktop/ragalens/Research Database-Music"
+    os.path.join(BASE_DIR, "Music Academy Journals"),
+    os.path.join(BASE_DIR, "Research Database-Music")
 ]
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 200
